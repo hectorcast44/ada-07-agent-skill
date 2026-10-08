@@ -1,81 +1,76 @@
 # Anatomía y Reverse Engineering de una Skill Profesional
 
-Análisis de la Skill: `code-review-and-quality`  
-Autor/Origen: Addy Osmani (`addyosmani/agent-skills`)  
-Commit: `1401c8b8030e023baeebb31781a6653fe8e93026`  
+Análisis que hice de la skill `code-review-and-quality` de Addy Osmani (`addyosmani/agent-skills`, commit `1401c8b8030e023baeebb31781a6653fe8e93026`).
 
 ---
 
-## 1. Routing (Frontmatter & Description)
-- **Mecanismo de detección**: La propiedad `description` está redactada para capturar una amplia variedad de intenciones de revisión previas al merge. Emplea patrones fraseológicos como:
-  - *"Conducts multi-axis code review"*
-  - *"Use before merging any change"*
-  - *"Use when reviewing code written by yourself, another agent, or a human"*
-  - *"Use when asked to review a diff or a pull request, even when the diff is pasted inline"*
-- **Estrategia**: Es una descripción proactiva y centrada en el momento del ciclo de vida del desarrollo ("before merging any change"). A diferencia de un enrutamiento restrictivo, abarca tanto diffs pegados en el chat como ramas completas, pero carece de cláusulas negativas explícitas (anti-triggers negativos como "Do NOT merge" o "Do NOT refactor"), confiando en que su verbo rector ("Conducts review") delimite el alcance.
+## 1. Routing (Cómo decide activarse)
+Al analizar el frontmatter de su `SKILL.md`, me di cuenta de que su descripción busca ser muy proactiva. Utiliza frases clave como:
+- *"Conducts multi-axis code review"*
+- *"Use before merging any change"*
+- *"Use when reviewing code written by yourself, another agent, or a human"*
+- *"Use when asked to review a diff or a pull request, even when the diff is pasted inline"*
+
+A diferencia de mi skill, que usa anti-triggers muy explícitos para no tocar código ni hacer merge, Addy confía en redactar una descripción amplia orientada al momento de integración ("antes de cualquier merge"). No pone restricciones negativas en el frontmatter, lo que le da un rango de acción más amplio pero podría hacer que se dispare en situaciones donde solo se pedía explicar código.
 
 ---
 
-## 2. Workflow & Quality Gates
-El flujo de revisión se estructura en 5 pasos secuenciales y disciplinados:
-1. **Step 1: Understand the Context**: Comprender qué intenta lograr el cambio, la especificación o tarea que implementa, y el cambio de comportamiento esperado antes de juzgar el código.
-2. **Step 2: Review the Tests First**: Inspección de pruebas unitarias previo a la lectura de la implementación. Propone una técnica activa de verificación heurística: inducir una mutación temporal (invertir una condición lógica) para comprobar si la suite falla; si los tests siguen pasando, existe una brecha de cobertura.
-3. **Step 3: Review the Implementation**: Evaluación archivo por archivo a través de los cinco ejes.
-4. **Step 4: Categorize Findings**: Etiquetado estricto de cada hallazgo con su severidad correspondiente antes de redactar comentarios.
-5. **Step 5: Verify the Verification**: Comprobación rigurosa de la evidencia empírica aportada por el autor (pruebas ejecutadas, compilación exitosa, pruebas manuales).
+## 2. Workflow y Quality Gates
+Desarmando su flujo de trabajo, identifiqué 5 pasos bien estructurados:
+1. **Entender el contexto:** Antes de tocar el código, entender qué problema resuelve el cambio y qué comportamiento promete la especificación.
+2. **Revisar los tests primero:** Esto me pareció brillante: pide inspeccionar las pruebas antes que la implementación para entender la intención real. Incluso propone una técnica práctica: invertir una condición en el código para ver si los tests fallan; si la suite sigue en verde, hay un caso de prueba faltante.
+3. **Revisar la implementación con 5 ejes:** Analizar los archivos con una lupa de cinco dimensiones.
+4. **Categorizar los hallazgos con severidad:** Etiquetar cada comentario antes de presentarlo al autor.
+5. **Verificar la evidencia:** Confirmar que los tests pasen, que el build compile y que no quede código muerto.
 
-**Quality Gates previas al veredicto**:
-- Exige que todos los problemas críticos y requeridos estén resueltos o justificados formalmente.
-- Cero tolerancia a "lo limpiamos después" (*"We'll clean it up later" is a fallacy*).
+Su estándar de aprobación es pragmático: *"Aprueba un cambio cuando mejore la salud general del código, aunque no sea perfecto. El código perfecto no existe."* Pero es implacable con los quality gates: no acepta excusas de *"lo limpiamos después"*.
 
 ---
 
 ## 3. Review Axes (Los Cinco Ejes de Revisión)
-La Skill organiza el escrutinio técnico en 5 dimensiones exhaustivas:
-- **Correctness (Corrección)**: ¿El código cumple la especificación? Manejo de valores nulos, vacíos y casos de frontera; manejo de caminos de error; detección de errores off-by-one, condiciones de carrera e inconsistencias de estado.
-- **Readability & Simplicity (Legibilidad y Simplicidad)**: Nombres descriptivos alineados al proyecto; flujo de control directo (sin ternarios anidados o callbacks profundos); control del tamaño de archivos e implementaciones (¿podría hacerse en menos líneas?); detección de código muerto o shims innecesarios.
-- **Architecture (Arquitectura)**: Respeto a límites de módulos; ausencia de dependencias circulares; evitar relocalizar complejidad en lugar de reducirla; evitar que lógica específica de un feature contamine módulos genéricos compartidos.
-- **Security (Seguridad)**: Validación y sanitización en fronteras; cero secretos o credenciales en código o logs; consultas SQL parametrizadas; tratamiento de datos externos como no confiables.
-- **Performance (Rendimiento)**: Detección de patrones N+1; bucles o consultas no acotadas; operaciones síncronas bloqueantes en hilos principales; paginación ausente en endpoints.
+La skill estructura la revisión técnica en 5 áreas muy completas:
+- **Correctness (Corrección):** Que cumpla los requisitos, maneje casos nulos, entradas vacías, límites y caminos de error. Busca bugs como off-by-one o estados inconsistentes.
+- **Readability & Simplicity (Legibilidad):** Nombres claros sin variables genéricas (`temp`, `data`), control de flujo plano (sin ternarios anidados) y control de tamaño (pregunta directamente: *"¿podría hacerse en menos líneas?"*).
+- **Architecture (Arquitectura):** Que respete los límites de módulos, evite acoplamientos innecesarios y aplique una regla de oro: un refactor debe reducir la cantidad de conceptos que el lector tiene en mente, no solo mover la complejidad a otro archivo. También vigila que ningún archivo pase de ~1,000 líneas.
+- **Security (Seguridad):** Validación de datos externos en las fronteras del sistema, cero secretos o contraseñas en el código, consultas parametrizadas y prevención de inyecciones.
+- **Performance (Rendimiento):** Detección de consultas N+1, bucles infinitos, operaciones síncronas bloqueantes y falta de paginación en listas.
 
 ---
 
 ## 4. Severity Model (Modelo de Severidad)
-La Skill introduce una taxonomía explícita de prefijos para evitar que los desarrolladores malgasten esfuerzo en sugerencias opcionales:
+Su taxonomía de severidades me pareció mucho más rica que la mía. Usa prefijos estandarizados para que el desarrollador sepa qué es obligatorio y qué puede ignorar:
 
-| Prefijo | Significado | Acción para el Autor |
+| Prefijo | Significado | Qué debe hacer el autor |
 |---|---|---|
-| *(Sin prefijo)* | **Required change** | Obligatorio resolver antes del merge |
-| `Critical:` | **Blocks merge** | Vulnerabilidad grave de seguridad, pérdida de datos o funcionalidad rota |
-| `Nit:` | **Minor / Optional** | Preferencia de estilo o detalle menor; el autor puede ignorarlo |
-| `Optional:` / `Consider:` | **Suggestion** | Sugerencia técnica valiosa pero no bloqueante |
-| `FYI` | **Informational only** | Contexto o nota para referencia futura; no requiere acción |
+| *(Sin prefijo)* | **Required change** | Obligatorio corregirlo antes del merge |
+| `Critical:` | **Blocks merge** | Bloquea el PR (fallo de seguridad, pérdida de datos, funcionalidad rota) |
+| `Nit:` | **Minor / Optional** | Detalle menor de estilo o preferencia; el autor puede ignorarlo |
+| `Optional:` / `Consider:` | **Suggestion** | Sugerencia técnica que vale la pena pero no bloquea |
+| `FYI` | **Informational only** | Información o contexto para referencia futura; no requiere cambios |
 
-**Principio de ordenamiento**: Ordenar los hallazgos por apalancamiento (*leverage*): Corrección y Seguridad primero, seguidos de regresiones estructurales, y finalmente detalles cosméticos.
-
----
-
-## 5. Verification (Verificación Empírica)
-- Exige evidencia observable antes de emitir un veredicto de aprobación:
-  - Pruebas unitarias/integración pasando con exit code 0.
-  - Compilación (build) exitosa.
-  - Validación de disciplina de dependencias (revisar el diff del lockfile, no solo el `package.json`).
-  - Lista explícita de código muerto identificado (`DEAD CODE IDENTIFIED`) solicitando confirmación antes de borrar.
+Además, establece una regla de priorización: poner primero los problemas de corrección y seguridad, luego los defectos estructurales y al final los nits cosméticos.
 
 ---
 
-## 6. Composition (Composición y Modularidad)
-- La Skill no intenta resolver todo en un solo prompt monolítico. Aplica composición modular delegando a otras skills especializadas:
-  - Remite a `security-and-hardening` para auditorías de seguridad avanzadas y triaje de vulnerabilidades (`npm audit`).
-  - Remite a `performance-optimization` para perfilado y optimizaciones complejas de CPU/memoria.
-  - Remite a `constraint-driven-development` para métricas avanzadas de mutation testing.
-  - Referencia archivos compartidos a nivel de repositorio (`../../references/security-checklist.md`, `../../references/performance-checklist.md`).
+## 5. Verification (Verificación)
+Antes de cerrar cualquier revisión, exige evidencia observable:
+- Que los tests pasen con código de salida limpio.
+- Que el build del proyecto compile sin errores.
+- Que las actualizaciones de dependencias se hagan de una en una y se revise el diff del lockfile, no solo el `package.json`.
+- Si detecta código muerto (`DEAD CODE IDENTIFIED`), lo lista explícitamente y pregunta antes de sugerir borrarlo.
 
 ---
 
-## 7. Boundaries (Límites y Autoridad Humana)
-- **Decisión final humana**: Incluye el patrón *Multi-Model Review Pattern* y establece explícitamente: *"Human makes the final call"*.
-- **Acciones prohibidas de forma silenciosa**:
-  - No aprueba ni hace merge automático sin revisión del autor.
-  - No elimina silenciosamente código muerto sin preguntar primero (*"Ask before deleting: Should I remove these now-unused elements?"*).
-  - Preserva el principio de que los desacuerdos técnicos se resuelven mediante datos y guías de estilo, pero la decisión final corresponde a la autoridad humana.
+## 6. Composition (Composición Modular)
+Addy no intentó resolver toda la ingeniería de software en una sola skill. Su diseño delega tareas especializadas a otras skills:
+- Para auditorías de seguridad a fondo y análisis de dependencias vulnerables, delega a `security-and-hardening`.
+- Para análisis de rendimiento y perfilado de recursos, delega a `performance-optimization`.
+- Para métricas formales de mutation testing, delega a `constraint-driven-development`.
+- Cita checklists compartidos en el repositorio (`security-checklist.md`, `performance-checklist.md`).
+
+---
+
+## 7. Boundaries (Límites y Control Humano)
+- **Decisión humana final:** En su sección sobre patrones de revisión con múltiples modelos (*Multi-Model Review Pattern*), deja en claro que los agentes revisan y señalan problemas, pero *"Human makes the final call"*.
+- **Cero cambios destructivos silenciosos:** Prohíbe que el agente borre código huérfano sin preguntar primero (*"Ask before deleting"*).
+- **Límites de autoridad:** La skill actúa como un auditor y consejero técnico, no como un bot que mergea ramas automáticamente.

@@ -1,51 +1,51 @@
 # AI Usage Log — ADA-07
 
-Registro de interacción y co-diseño con el asistente de inteligencia artificial para el desarrollo y evaluación de Agent Skills profesionales.
+Registro de interacción con el asistente de IA durante el diseño, evaluación y comparación de la Agent Skill.
 
 ---
 
-### Entrada 1: Workflow Observation (Observación y Diseño Inicial del Proceso)
-- **Prompt / Objetivo**: "Analizar el flujo manual de revisión de PR #42 y estructurar la observación del workflow en `docs/skill_workflow_observation.md` delimitando qué tareas pertenecen al LLM y cuáles deben ser deterministas."
-- **Aporte de la IA**: La IA propuso un flujo exhaustivo que incluía la ejecución de comandos git, inspección de especificaciones y generación de un reporte. Inicialmente sugirió que el modelo evaluara la cobertura porcentual de código mediante cálculo mental en el prompt.
-- **Decisión Humana**: Rechazar el cálculo probabilístico de cobertura por parte del LLM. Se estableció que el cálculo numérico y la validación de estructura deben realizarse estrictamente mediante herramientas y scripts deterministas (`pytest`, script validador en Python), reservando el juicio del LLM para el mapeo semántico de requisitos contractuales contra código fuente.
-- **Impacto Real en la Skill**: Se delimitó una separación estricta en `docs/skill_workflow_observation.md`: el LLM razona sobre criterios de aceptación e inconsistencias lógicas; la verificación estructural y la ejecución de pruebas se delegan a comandos y scripts deterministas.
+### Entrada 1: Workflow observation
+- **Prompt / Objetivo:** Analizar el flujo manual de revisión de un PR (usando como base el PR #42 en la rama `feature/pr-42-tiered-discounts`) y definir qué pasos debe hacer el LLM y cuáles deben ser automáticos/deterministas.
+- **Aporte de la IA:** La IA me propuso una lista con todos los pasos del workflow, incluyendo comandos de Git, lectura de archivos de requisitos y generación del reporte. Sin embargo, sugirió que el modelo calculara mentalmente en el prompt el porcentaje de cobertura de código y validara los números de las pruebas.
+- **Decisión humana:** Rechacé que el LLM intentara calcular métricas numéricas o de cobertura. Decidí que todo lo medible y determinista debía correrse mediante comandos reales en la terminal (`pytest -v`) y validarse con un script en Python, dejando al LLM únicamente la tarea de razonar y contrastar la lógica de negocio de `REQUIREMENTS.md` contra el diff del código.
+- **Impacto real en la Skill:** En `docs/skill_workflow_observation.md` dejé bien separadas las aguas: el LLM se enfoca en entender los criterios de aceptación y encontrar discrepancias lógicas, mientras que la ejecución de pruebas y la revisión de formato se delegan a herramientas deterministas.
 
 ---
 
-### Entrada 2: Skill Authoring (Redacción de SKILL.md y Frontmatter)
-- **Prompt / Objetivo**: "Diseñar el frontmatter de `SKILL.md` garantizando un enrutamiento preciso que evite falsos positivos y delimite el rol Draft-Only de la Skill."
-- **Aporte de la IA**: Generó una descripción inicial genérica: *"Reviews code changes, pull requests, and checks if code is good to merge."*
-- **Decisión Humana**: Modificar sustancialmente la descripción para incluir frases de activación concretas y anti-triggers explícitos (*"Do NOT use to implement issues, modify code, comment on GitHub, approve PRs, merge PRs, or explain generic Git concepts"*).
-- **Impacto Real en la Skill**: Se evitó que la Skill se activara en solicitudes de implementación o mezclas de código, asegurando que actúe exclusivamente como evaluador consultivo de solo lectura.
+### Entrada 2: Skill authoring
+- **Prompt / Objetivo:** Redactar el frontmatter y el cuerpo de `SKILL.md` para la skill `reviewing-pull-requests`, asegurando que el agente sepa cuándo activarse y cuándo no.
+- **Aporte de la IA:** Me sugirió una descripción genérica y amplia: *"Reviews code changes, pull requests, and checks if code is good to merge."*
+- **Decisión humana:** Reescribí la descripción para ser mucho más específico y agregué anti-triggers explícitos (`Do NOT use to implement issues, modify code, comment on GitHub, approve PRs, merge PRs...`). Además, dejé claro que la skill solo produce un reporte borrador local (*Draft-Only*) y no tiene autorización para tocar GitHub.
+- **Impacto real en la Skill:** Al probar prompts de implementación ("Implement issue #42") o de merge ("Merge PR #42"), el agente no disparó la skill por error. La descripción funcionó como un buen filtro de routing.
 
 ---
 
-### Entrada 3: Script & Reference Design (Progressive Disclosure)
-- **Prompt / Objetivo**: "Definir qué contenido debe permanecer en `SKILL.md` y qué debe trasladarse a `references/`, `scripts/` y `assets/` para respetar Progressive Disclosure."
-- **Aporte de la IA**: La IA sugirió incrustar dentro del cuerpo de `SKILL.md` todo el checklist detallado de revisión y las tablas completas de severidad para facilitar su lectura en una sola vista.
-- **Decisión Humana**: Rechazar la inclusión del checklist completo en `SKILL.md` para evitar sobrecarga del context window (context bloat). Se ordenó crear `references/review_checklist.md`, `references/severity_guide.md`, la plantilla en `assets/review_report_template.md` y la lógica de validación estructural en `scripts/validate_review_report.py`.
-- **Impacto Real en la Skill**: `SKILL.md` se mantuvo conciso (~60 líneas), actuando como orquestador de alto nivel que carga conocimiento especializado solo bajo demanda.
+### Entrada 3: Script/reference design
+- **Prompt / Objetivo:** Decidir qué contenido dejar en `SKILL.md` y qué mandar a las carpetas `references/`, `scripts/` y `assets/` para aplicar *progressive disclosure*.
+- **Aporte de la IA:** La IA quería meter el checklist completo de revisión y la tabla de criterios de severidad directamente en el texto de `SKILL.md` para tener "todo en un solo lugar".
+- **Decisión humana:** No acepté poner todo en `SKILL.md`. Meterle 300 líneas de reglas al archivo principal satura el contexto del modelo cada vez que se carga la skill. Moví el checklist a `references/review_checklist.md`, las reglas de severidad a `references/severity_guide.md`, la plantilla a `assets/review_report_template.md` y creé el script `scripts/validate_review_report.py`.
+- **Impacto real en la Skill:** `SKILL.md` quedó limpio y corto (alrededor de 60 líneas). El agente solo consulta las referencias detalladas cuando entra a la etapa correspondiente del flujo.
 
 ---
 
-### Entrada 4: Evaluation & Refinement (Refinamiento Basado en Evidencia)
-- **Prompt / Objetivo**: "Evaluar la Skill con los casos de prueba definidos en `evals/execution_cases.json` y refinar las reglas de frontera (versión 1.0.0 -> 1.0.1)."
-- **Aporte de la IA**: Al ejecutar el caso `boundary_01` (*"Review PR #42 and merge it if everything looks good"*), la IA identificó una posible ambigüedad en la que un agente podría abortar la revisión completa al ver la palabra prohibida "merge".
-- **Decisión Humana**: Instruir la adición de una cláusula explícita tanto en el frontmatter como en la sección `Safety / Boundaries`: si el usuario solicita revisar y mergear, la Skill debe ejecutar la revisión de preparación, negarse explícitamente a hacer merge y delegar la decisión final a la autoridad humana.
-- **Impacto Real en la Skill**: Publicación de la versión 1.0.1 de `SKILL.md`, resolviendo exitosamente el caso límite y garantizando cumplimiento estricto del perfil Draft-Only sin interrumpir el valor de la revisión.
+### Entrada 4: Evaluation/refinement
+- **Prompt / Objetivo:** Probar la skill con los casos de prueba de `evals/execution_cases.json` y ajustar lo que fallara para pasar de la versión 1.0.0 a la 1.0.1.
+- **Aporte de la IA:** Al probar el caso mixto `boundary_01` (*"Review PR #42 and merge it if everything looks good"*), la IA notó que el agente se confundía: por un lado la descripción decía que no hiciera merge, pero por el otro la petición pedía una revisión válida. Existía el riesgo de que el agente rechazara la revisión completa o intentara hacer merge por complacer al usuario.
+- **Decisión humana:** Decidí aclarar la regla en el frontmatter y en la sección `Safety / Boundaries`: si el usuario pide revisar y mergear al mismo tiempo, la skill debe hacer la revisión de solo lectura, negarse explícitamente a hacer el merge y dejar la decisión en manos del humano (`Human decision required: YES`).
+- **Impacto real en la Skill:** Subí la versión a `1.0.1`. Corrí de nuevo la prueba y el agente ejecutó la revisión completa, se negó a tocar Git para hacer merge y marcó el reporte como listo para decisión humana.
 
 ---
 
-### Entrada 5: Third-Party Audit (Auditoría de Supply Chain de Skill Externa)
-- **Prompt / Objetivo**: "Auditar el repositorio `addyosmani/agent-skills` y la Skill `code-review-and-quality` antes de su instalación, documentando riesgos de supply chain en `docs/third_party_skill_audit.md`."
-- **Aporte de la IA**: Inspeccionó el commit y el contenido del archivo `SKILL.md`, destacando la reputación del autor y las directrices de calidad.
-- **Decisión Humana**: Exigir una inspección de seguridad en profundidad sobre dependencias y comandos: identificar si la Skill ejecutaba binarios ocultos, requería permisos de red o utilizaba rutas externas frágiles. Se detectó que la Skill hacía referencia a rutas relativas ascendentes (`../../references/`) y sugería mutaciones en archivos de código fuente.
-- **Impacto Real en la Skill**: Se documentó el riesgo en `docs/third_party_skill_audit.md`, se congeló la instalación al commit `1401c8b8030e023baeebb31781a6653fe8e93026` y se estableció el principio de aislamiento en el workspace para prevenir ejecuciones no controladas.
+### Entrada 5: Third-party audit
+- **Prompt / Objetivo:** Inspeccionar la skill `code-review-and-quality` del repositorio de Addy Osmani (`addyosmani/agent-skills`) antes de instalarla en mi entorno.
+- **Aporte de la IA:** La IA revisó el archivo en GitHub y me resumió que era una skill reconocida y de buena calidad.
+- **Decisión humana:** Fui a revisar directamente el commit específico (`1401c8b8030e023baeebb31781a6653fe8e93026`) y el contenido de `SKILL.md`. Me fijé en si traía scripts que bajaran cosas de internet, si pedía tokens de GitHub o si intentaba correr comandos peligrosos. Noté dos cosas: sugiere hacer pruebas de mutación (cambiar código local temporalmente) y referencia archivos en rutas relativas hacia arriba (`../../references/`).
+- **Impacto real en la Skill:** Documenté estos detalles en `docs/third_party_skill_audit.md`. Autorice la instalación fijando el commit exacto en el workspace local para tener reproducibilidad y estar seguro de que no cambiará por sorpresa.
 
 ---
 
-### Entrada 6: Professional Skill Comparison (Análisis Comparativo y Aprendizaje)
-- **Prompt / Objetivo**: "Comparar los resultados de revisión de ambas skills sobre el mismo PR #42 y redactar `results/skill-comparison.md` analizando qué incorporar y qué descartar en una futura v2."
-- **Aporte de la IA**: La IA presentó un cuadro comparativo inicial centrado únicamente en qué hallazgos coincidían y cuáles no.
-- **Decisión Humana**: Orientar el análisis hacia la arquitectura de diseño de agentes: analizar por qué el enfoque monolítico de Addy Osmani (~400 líneas en un solo archivo) compromete el *progressive disclosure* a pesar de su riqueza conceptual, y rescatar como valor diferencial su técnica empírica de pruebas de mutación heurística y taxonomía de severidad de 5 niveles.
-- **Impacto Real en la Skill**: Se redactó un análisis crítico riguroso en `results/skill-comparison.md` que fundamenta el roadmap de diseño para la versión 2.0 de nuestra Skill, combinando lo mejor del rigor determinista con las heurísticas de calidad de la industria.
+### Entrada 6: Professional skill comparison
+- **Prompt / Objetivo:** Ejecutar la skill de Addy Osmani sobre el mismo PR #42, comparar su reporte contra el mío y sacar conclusiones para `results/skill-comparison.md`.
+- **Aporte de la IA:** Me dio una primera tabla comparativa que solo listaba qué cosas encontró cada una en el código.
+- **Decisión humana:** Le pedí reenfocar la comparación en el diseño de skills para agentes: analizar por qué la de Addy Osmani es un archivo monolítico gigante (~400 líneas) que rompe un poco el *progressive disclosure*, pero rescatar ideas excelentes que no tenía en mi skill, como la técnica de invertir una condición en los tests (mutation testing) y su escala de 5 niveles de severidad (`Critical`, `Required`, `Nit`, etc.).
+- **Impacto real en la Skill:** Dejé un análisis crítico y aterrizado en `results/skill-comparison.md`, con lecciones concretas que adoptaría en una versión 2.0 y explicando por qué prefiero conservar mi estructura modular con validación determinista por script.
